@@ -1,0 +1,43 @@
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# --- Secrets: only the *.example files belong in git ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secret.key
+
+# --- Local data and backups (SQLite holds users and encrypted connection passwords) ---
+data/
+*.db
+*.db-journal
+*.sqlite3
+*.bak
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# --- Node ---
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+.vite/
+coverage/
+
+# --- Logs ---
+*.log

@@ -1,0 +1,16 @@
+# Secrets and local state. The root .gitignore covers these too; this keeps the folder safe on its own.
+.env
+.env.*
+!.env.example
+data/
+*.db
+*.key
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage

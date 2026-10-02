@@ -1,0 +1,36 @@
+services:
+  api:
+    build: ./backend
+    environment:
+      PGWEB_SECRET_KEY: ${PGWEB_SECRET_KEY:-}   # empty -> generated once into the data volume
+      PGWEB_ALLOWED_HOSTS: ${PGWEB_ALLOWED_HOSTS:-[]}
+      # Secure cookies need HTTPS (browsers exempt http://localhost, Safari doesn't). Terminate TLS in
+      # front of `web`, or set false for a plain-http trial run.
+      PGWEB_COOKIE_SECURE: ${PGWEB_COOKIE_SECURE:-true}
+      # First admin, created only while there are no users. Remove the password after the first start.
+      PGWEB_BOOTSTRAP_ADMIN_EMAIL: ${PGWEB_BOOTSTRAP_ADMIN_EMAIL:-}
+      PGWEB_BOOTSTRAP_ADMIN_PASSWORD: ${PGWEB_BOOTSTRAP_ADMIN_PASSWORD:-}
+    volumes:
+      - api_data:/data   # pgweb2.db (+ secret.key if not supplied)
+    # Not published: only `web` can reach it, which is what makes trusting its X-Forwarded-* headers safe.
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports:
+      - "${PGWEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  api_data:
