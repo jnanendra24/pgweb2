@@ -26,4 +26,4 @@ host (reverse proxy).
 - `src/components/auth/` — login, account menu, change password, team members, audit log
 - `src/components/grid/` — virtualized data grid (TanStack Virtual)
 - `src/components/editor/` — CodeMirror 6 SQL editor + WHERE filter with table/column autocomplete
-- `src/components/workspace/` — explorer, tabs, table view, structure view, query tab (with manual transactions), command palette
+- `src/components/workspace/` — explorer, tabs, table view with staged row edits, structure view, query tab (with manual transactions), command palette

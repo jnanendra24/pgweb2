@@ -30,6 +30,7 @@ SELECT a.attname AS name,
        NOT a.attnotnull AS nullable,
        pg_get_expr(d.adbin, d.adrelid) AS "default",
        COALESCE(a.attnum = ANY (i.indkey), false) AS is_primary_key
+       ,a.attgenerated <> '' AS is_generated, a.attidentity <> '' AS is_identity
 FROM pg_attribute a
 JOIN pg_class c ON c.oid = a.attrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace

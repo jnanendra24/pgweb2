@@ -1,18 +1,25 @@
 import { FileCode2, Plus, Table2, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import type { Tab } from '@/stores/workspace'
 import { cn } from '@/lib/utils'
-import { useConnWorkspace, useWorkspace } from '@/stores/workspace'
+import { draftCount, tableDraftKey, useConnWorkspace, useWorkspace } from '@/stores/workspace'
+import { PendingChangesDialog } from './pending-changes-dialog'
 
 export function TabsBar({ connId }: { connId: string }) {
   const { tabs, activeId } = useConnWorkspace(connId)
   const { setActive, closeTab, openQuery } = useWorkspace()
   const activeRef = useRef<HTMLDivElement>(null)
+  const drafts = useWorkspace((s) => s.tableDrafts)
+  const [pendingClose, setPendingClose] = useState<Extract<Tab, { kind: 'table' }> | null>(null)
 
   const close = async (t: Tab) => {
+    if (t.kind === 'table' && draftCount(drafts[tableDraftKey(connId, t.schema, t.table)])) {
+      setPendingClose(t)
+      return
+    }
     if (t.kind === 'query' && t.txId) {
       if (!window.confirm('This tab has an open transaction. Close it and roll the transaction back?')) return
       await api.rollback(t.txId).catch(() => undefined) // already gone is fine
@@ -67,6 +74,11 @@ export function TabsBar({ connId }: { connId: string }) {
       <Button variant="ghost" size="icon" className="m-1 shrink-0" aria-label="New query tab" onClick={() => openQuery(connId)}>
         <Plus />
       </Button>
+      <PendingChangesDialog
+        tables={pendingClose ? [{ connId, schema: pendingClose.schema, table: pendingClose.table }] : []}
+        onCancel={() => setPendingClose(null)}
+        onContinue={() => { if (pendingClose) closeTab(connId, pendingClose.id); setPendingClose(null) }}
+      />
     </div>
   )
 }

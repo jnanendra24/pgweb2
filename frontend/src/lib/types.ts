@@ -56,6 +56,8 @@ export interface ColumnInfo {
   nullable: boolean
   default: string | null
   is_primary_key: boolean
+  is_generated: boolean
+  is_identity: boolean
 }
 
 export interface TableColumns {
@@ -80,6 +82,43 @@ export interface QueryResult {
   truncated: boolean
   status: string | null
   duration_ms: number
+}
+
+export interface TableRowsResult extends QueryResult {
+  row_versions: (string | null)[]
+}
+
+export type BrowseFilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is_null' | 'is_not_null'
+export interface BrowseFilterCondition {
+  column: string
+  operator: BrowseFilterOperator
+  value?: unknown
+}
+export interface BrowseSearch {
+  limit: number
+  offset: number
+  order_by?: string
+  desc?: boolean
+  combine: 'and' | 'or'
+  conditions: BrowseFilterCondition[]
+}
+
+export interface ExistingRowChange {
+  primary_key: Record<string, unknown>
+  version: string
+  values: Record<string, unknown>
+}
+
+export interface TableChanges {
+  updates: ExistingRowChange[]
+  inserts: { values: Record<string, unknown> }[]
+  deletes: ExistingRowChange[]
+}
+
+export interface TableChangesResult {
+  updated: number
+  inserted: number
+  deleted: number
 }
 
 export interface TxInfo {

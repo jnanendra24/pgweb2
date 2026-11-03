@@ -1,6 +1,6 @@
 # pgweb2
 
-A web PostgreSQL client for a team: browse tables, run SQL with autocomplete, manual transactions, per-user accounts and an audit log.
+A web PostgreSQL client for a team: browse and edit tables, run SQL with autocomplete, manual transactions, per-user accounts and an audit log.
 
 - [`backend/`](backend/README.md): FastAPI API (accounts, encrypted connections, queries, transactions, audit)
 - [`frontend/`](frontend/README.md): React UI
