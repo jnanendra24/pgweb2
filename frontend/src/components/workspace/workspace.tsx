@@ -15,10 +15,11 @@ import { useIsMobile } from '@/hooks/use-media-query'
 import { api } from '@/lib/api'
 import type { ConnectionRead, User } from '@/lib/types'
 import { useActive } from '@/stores/connections'
-import { useConnWorkspace, useWorkspace } from '@/stores/workspace'
+import { draftCount, tableDraftKey, useConnWorkspace, useWorkspace } from '@/stores/workspace'
 import { CommandPalette } from './command-palette'
 import { Explorer } from './explorer'
 import { TabsBar } from './tabs-bar'
+import { PendingChangesDialog } from './pending-changes-dialog'
 
 // CodeMirror and the SQL formatter are heavy; load them when the first tab opens.
 const QueryTab = lazy(() => import('./query-tab').then((m) => ({ default: m.QueryTab })))
@@ -51,6 +52,8 @@ export function Workspace({ conn, me }: { conn: ConnectionRead; me: User }) {
   const databases = useDatabases(conn.id)
   const [menuOpen, setMenuOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<{ kind: 'leave' } | { kind: 'database'; database: string } | null>(null)
+  const drafts = useWorkspace((s) => s.tableDrafts)
 
   const switchDb = useMutation({
     mutationFn: (db: string) => api.switchDatabase(conn.id, db),
@@ -63,18 +66,28 @@ export function Workspace({ conn, me }: { conn: ConnectionRead; me: User }) {
   })
 
   const openTx = tabs.some((t) => t.kind === 'query' && t.txId)
-  const leave = () => {
+  const dirtyTables = tabs.flatMap((t) => t.kind === 'table' && draftCount(drafts[tableDraftKey(conn.id, t.schema, t.table)]) > 0
+    ? [{ connId: conn.id, schema: t.schema, table: t.table }] : [])
+  const finishLeave = () => {
     if (openTx && !window.confirm('You have an open transaction. It stays open on the server (and auto-rolls back when idle) if you leave. Leave anyway?')) return
     setActive(null)
+  }
+  const leave = () => {
+    if (dirtyTables.length) setPendingNavigation({ kind: 'leave' })
+    else finishLeave()
+  }
+  const requestDatabaseSwitch = (database: string) => {
+    if (dirtyTables.length) setPendingNavigation({ kind: 'database', database })
+    else switchDb.mutate(database)
   }
 
   // A reload keeps the transaction alive on the server, but make it hard to do by accident.
   useEffect(() => {
-    if (!openTx) return
+    if (!openTx && !dirtyTables.length) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [openTx])
+  }, [openTx, dirtyTables.length])
 
   const active = tabs.find((t) => t.id === activeId)
 
@@ -85,7 +98,7 @@ export function Workspace({ conn, me }: { conn: ConnectionRead; me: User }) {
         {/* Keyed by tab so each tab keeps its own page / sort / results while open. */}
         <Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">Loading…</div>}>
         {active?.kind === 'table' ? (
-          <TableView key={active.id} connId={conn.id} schema={active.schema} table={active.table} />
+          <TableView key={active.id} connId={conn.id} schema={active.schema} table={active.table} readOnly={conn.read_only} />
         ) : active?.kind === 'query' ? (
           <QueryTab key={active.id} connId={conn.id} tab={active} readOnly={conn.read_only} />
         ) : (
@@ -124,7 +137,7 @@ export function Workspace({ conn, me }: { conn: ConnectionRead; me: User }) {
           </Badge>
         )}
 
-        <Select value={conn.database} onValueChange={(v) => v && v !== conn.database && switchDb.mutate(v)} disabled={switchDb.isPending}>
+        <Select value={conn.database} onValueChange={(v) => v && v !== conn.database && requestDatabaseSwitch(v)} disabled={switchDb.isPending}>
           <SelectTrigger size="sm" className="ml-1 max-w-[150px] min-w-[96px] sm:max-w-[220px]" aria-label="Database">
             <Database className="text-muted-foreground" />
             <SelectValue />
@@ -179,6 +192,12 @@ export function Workspace({ conn, me }: { conn: ConnectionRead; me: User }) {
       </div>
 
       <CommandPalette connId={conn.id} open={paletteOpen} onOpenChange={setPaletteOpen} onDisconnect={leave} />
+      <PendingChangesDialog tables={pendingNavigation ? dirtyTables : []} onCancel={() => setPendingNavigation(null)} onContinue={() => {
+        const next = pendingNavigation
+        setPendingNavigation(null)
+        if (next?.kind === 'database') switchDb.mutate(next.database)
+        else if (next?.kind === 'leave') finishLeave()
+      }} />
     </div>
   )
 }

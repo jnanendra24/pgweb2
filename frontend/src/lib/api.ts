@@ -1,5 +1,6 @@
 import type {
   AuditEntry,
+  BrowseSearch,
   ColumnInfo,
   ConnectionInput,
   ConnectionRead,
@@ -7,7 +8,10 @@ import type {
   QueryResult,
   Role,
   TableColumns,
+  TableChanges,
+  TableChangesResult,
   TableInfo,
+  TableRowsResult,
   TableStructure,
   TxInfo,
   TxQueryResult,
@@ -97,13 +101,18 @@ export const api = {
     id: string,
     schema: string,
     table: string,
-    opts: { limit: number; offset: number; orderBy?: string; desc?: boolean },
+    opts: { limit: number; offset: number; orderBy?: string; desc?: boolean; filter?: string },
   ) => {
     const q = new URLSearchParams({ limit: String(opts.limit), offset: String(opts.offset) })
     if (opts.orderBy) q.set('order_by', opts.orderBy)
     if (opts.desc) q.set('desc', 'true')
-    return request<QueryResult>(`${conn(id)}/tables/${enc(schema)}/${enc(table)}/rows?${q}`)
+    if (opts.filter) q.set('filter', opts.filter)
+    return request<TableRowsResult>(`${conn(id)}/tables/${enc(schema)}/${enc(table)}/rows?${q}`)
   },
+  searchTable: (id: string, schema: string, table: string, search: BrowseSearch) =>
+    request<TableRowsResult>(`${conn(id)}/tables/${enc(schema)}/${enc(table)}/rows/search`, json('POST', search)),
+  applyTableChanges: (id: string, schema: string, table: string, changes: TableChanges) =>
+    request<TableChangesResult>(`${conn(id)}/tables/${enc(schema)}/${enc(table)}/changes`, json('POST', changes)),
 
   // --- manual transactions ---
   listTransactions: () => request<TxInfo[]>('/api/transactions'),

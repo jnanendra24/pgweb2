@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -113,6 +113,8 @@ class ColumnInfo(BaseModel):
     nullable: bool
     default: str | None = None
     is_primary_key: bool = False
+    is_generated: bool = False
+    is_identity: bool = False
 
 
 class TableColumns(BaseModel):
@@ -144,6 +146,21 @@ class QueryRequest(BaseModel):
     limit: int = Field(1000, ge=1, le=10_000)
 
 
+class BrowseFilterCondition(BaseModel):
+    column: str = Field(min_length=1, max_length=255)
+    operator: Literal["eq", "neq", "gt", "gte", "lt", "lte", "like", "ilike", "in", "is_null", "is_not_null"]
+    value: Any = None
+
+
+class BrowseSearch(BaseModel):
+    limit: int = Field(100, ge=1, le=1000)
+    offset: int = Field(0, ge=0)
+    order_by: str | None = Field(None, max_length=255)
+    desc: bool = False
+    combine: Literal["and", "or"] = "and"
+    conditions: list[BrowseFilterCondition] = Field(default_factory=list, max_length=20)
+
+
 class QueryColumn(BaseModel):
     name: str
     type: str
@@ -155,6 +172,32 @@ class QueryResult(BaseModel):
     truncated: bool  # more rows existed beyond `limit`
     status: str | None = None  # command tag for statements that return no rows, e.g. "INSERT 0 1"
     duration_ms: float
+
+
+class TableRowsResult(QueryResult):
+    row_versions: list[str | None]
+
+
+class RowChange(BaseModel):
+    primary_key: dict[str, object]
+    version: str
+    values: dict[str, object] = Field(default_factory=dict)
+
+
+class NewRow(BaseModel):
+    values: dict[str, object] = Field(default_factory=dict)
+
+
+class TableChanges(BaseModel):
+    updates: list[RowChange] = Field(default_factory=list)
+    inserts: list[NewRow] = Field(default_factory=list)
+    deletes: list[RowChange] = Field(default_factory=list)
+
+
+class TableChangesResult(BaseModel):
+    updated: int
+    inserted: int
+    deleted: int
 
 
 # --- transactions ---

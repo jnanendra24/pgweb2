@@ -45,6 +45,18 @@ interface Props {
   sort?: Sort | null
   onSortChange?: (s: Sort | null) => void
   primaryKeys?: ReadonlySet<string>
+  onEditCell?: (row: number, column: number) => void
+  onToggleDelete?: (row: number) => void
+  isDeleted?: (row: number) => boolean
+  isInserted?: (row: number) => boolean
+  isChanged?: (row: number, column: number) => boolean
+  editing?: { row: number; column: number; text: string }
+  onEditTextChange?: (text: string) => void
+  onCommitEdit?: () => void
+  onCancelEdit?: () => void
+  onEditLarge?: (row: number, column: number) => void
+  onSetNullCell?: (row: number, column: number) => void
+  onCloneRow?: (row: number) => void
   /** Warn when the row limit cut the result short (query tabs; paginated tables just have a next page). */
   warnTruncated?: boolean
 }

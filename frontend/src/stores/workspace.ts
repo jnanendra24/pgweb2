@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { ExistingRowChange, TableChanges } from '@/lib/types'
 
 export type Tab =
   | { id: string; kind: 'table'; schema: string; table: string }
@@ -11,8 +12,31 @@ interface ConnWorkspace {
   activeId: string | null
 }
 
+export interface StagedRowChange extends ExistingRowChange {
+  original: Record<string, unknown>
+}
+
+export interface TableDraft {
+  updates: Record<string, StagedRowChange>
+  deletes: Record<string, StagedRowChange>
+  inserts: { id: string; values: Record<string, unknown> }[]
+}
+
+export const emptyTableDraft = (): TableDraft => ({ updates: {}, deletes: {}, inserts: [] })
+export const tableDraftKey = (connId: string, schema: string, table: string) => JSON.stringify([connId, schema, table])
+export const draftCount = (draft?: TableDraft) =>
+  draft ? Object.keys(draft.updates).length + Object.keys(draft.deletes).length + draft.inserts.length : 0
+export const apiTableChanges = (draft: TableDraft): TableChanges => ({
+  updates: Object.values(draft.updates).map(({ primary_key, version, values }) => ({ primary_key, version, values })),
+  inserts: draft.inserts.map(({ values }) => ({ values })),
+  deletes: Object.values(draft.deletes).map(({ primary_key, version }) => ({ primary_key, version, values: {} })),
+})
+
 interface WorkspaceState {
   byConn: Record<string, ConnWorkspace>
+  tableDrafts: Record<string, TableDraft>
+  setTableDraft: (tabId: string, draft: TableDraft) => void
+  clearTableDraft: (tabId: string) => void
   openTable: (connId: string, schema: string, table: string) => void
   openQuery: (connId: string, sql?: string) => void
   closeTab: (connId: string, tabId: string) => void
@@ -35,6 +59,12 @@ export const useWorkspace = create<WorkspaceState>()(
 
       return {
         byConn: {},
+        tableDrafts: {},
+        setTableDraft: (tabId, draft) => set((s) => ({ tableDrafts: { ...s.tableDrafts, [tabId]: draft } })),
+        clearTableDraft: (tabId) => set((s) => {
+          const { [tabId]: _, ...rest } = s.tableDrafts
+          return { tableDrafts: rest }
+        }),
         openTable: (connId, schema, table) =>
           patch(connId, (w) => {
             const id = `t:${schema}.${table}`
@@ -75,7 +105,7 @@ export const useWorkspace = create<WorkspaceState>()(
           }),
       }
     },
-    { name: 'pgweb2.workspace' },
+    { name: 'pgweb2.workspace', partialize: (s) => ({ byConn: s.byConn }) },
   ),
 )
 
